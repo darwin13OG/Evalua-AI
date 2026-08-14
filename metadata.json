@@ -1,0 +1,10 @@
+{
+  "name": "EVALUA AI: Analizador Universal",
+  "description": "Analizador universal con inteligencia artificial para evaluar fotos y comparativas 'Antes vs. Después' con diagnóstico honesto, puntuación, recomendaciones y exportación en PDF.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
