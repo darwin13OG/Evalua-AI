@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, Sparkles, Image as ImageIcon, Trash2, Loader2, ArrowRight, Camera, Paperclip, X } from 'lucide-react';
 import { ChatMessage, AppSettings } from '../types';
+import { chatWithAdvisor } from '../services/geminiService';
 
 interface InteractiveChatProps {
   imagePreview: string | null;
@@ -83,32 +84,20 @@ export const InteractiveChat: React.FC<InteractiveChatProps> = ({
     setErrorMessage(null);
 
     try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messages: updatedMessages.map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-          image: imagePreview,
-          customApiKey: settings.customApiKey,
-          tone: settings.tone,
-        }),
+      const reply = await chatWithAdvisor({
+        messages: updatedMessages.map((m) => ({
+          role: m.role,
+          content: m.content,
+        })),
+        image: imagePreview,
+        customApiKey: settings.customApiKey,
+        tone: settings.tone,
       });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Error al procesar la respuesta del chat.');
-      }
 
       const assistantMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
-        content: data.reply,
+        content: reply,
         timestamp: Date.now(),
       };
 

@@ -12,6 +12,7 @@ import { CameraCaptureModal } from './components/CameraCaptureModal';
 import { StoryExportModal } from './components/StoryExportModal';
 import { DetailedReportResult, ComparisonReportResult, AnalysisMode, AppSettings } from './types';
 import { generateEvaluationPDF, convertUrlToBase64 } from './utils/exportUtils';
+import { analyzeImage, compareImages } from './services/geminiService';
 import { AlertCircle, Loader2, MessageSquare, SplitSquareVertical } from 'lucide-react';
 
 export default function App() {
@@ -137,30 +138,15 @@ export default function App() {
         payloadImage = await convertUrlToBase64(imagePreview);
       }
 
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          image: payloadImage,
-          mode: selectedMode,
-          customApiKey: settings.customApiKey,
-          tone: settings.tone,
-        }),
+      const reportData = await analyzeImage({
+        image: payloadImage,
+        mode: selectedMode,
+        customApiKey: settings.customApiKey,
+        tone: settings.tone,
       });
 
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(
-          data.error || 'No se pudo completar la evaluación. Por favor verifica la imagen o intenta de nuevo.'
-        );
-      }
-
-      const reportData = data.report || data.evaluation;
       if (!reportData) {
-        throw new Error('El servidor no devolvió una estructura de reporte válida.');
+        throw new Error('No se devolvió una estructura de reporte válida.');
       }
 
       setDetailedReport(reportData);
@@ -191,31 +177,16 @@ export default function App() {
         payloadB = await convertUrlToBase64(compareImageB);
       }
 
-      const response = await fetch('/api/compare', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          imageA: payloadA,
-          imageB: payloadB,
-          mode: compareMode,
-          customApiKey: settings.customApiKey,
-          tone: settings.tone,
-        }),
+      const reportData = await compareImages({
+        imageA: payloadA,
+        imageB: payloadB,
+        mode: compareMode,
+        customApiKey: settings.customApiKey,
+        tone: settings.tone,
       });
 
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(
-          data.error || 'No se pudo completar la comparativa. Por favor verifica las fotos o intenta de nuevo.'
-        );
-      }
-
-      const reportData = data.report || data.evaluation;
       if (!reportData) {
-        throw new Error('El servidor no devolvió una estructura de comparativa válida.');
+        throw new Error('No se devolvió una estructura de comparativa válida.');
       }
 
       setComparisonReport(reportData);
