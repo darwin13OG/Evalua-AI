@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
-import { Camera, X, RefreshCw, Check } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Camera, X, RefreshCw, Check, UploadCloud, Smartphone, AlertTriangle } from 'lucide-react';
 
 interface CameraCaptureModalProps {
   isOpen: boolean;
@@ -10,9 +10,12 @@ interface CameraCaptureModalProps {
 export function CameraCaptureModal({ isOpen, onClose, onCapture }: CameraCaptureModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const nativeCameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -30,6 +33,15 @@ export function CameraCaptureModal({ isOpen, onClose, onCapture }: CameraCapture
   async function startCamera() {
     stopCamera();
     setErrorMessage(null);
+
+    // Check if mediaDevices API is available
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setErrorMessage(
+        'Tu navegador o este entorno no admite la cámara en vivo por navegador. Usa la cámara nativa de tu dispositivo.'
+      );
+      return;
+    }
+
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -44,10 +56,19 @@ export function CameraCaptureModal({ isOpen, onClose, onCapture }: CameraCapture
         videoRef.current.srcObject = mediaStream;
       }
     } catch (err: unknown) {
-      console.error('Error accediendo a la cámara:', err);
-      setErrorMessage(
-        'No se pudo acceder a la cámara. Verifica los permisos del navegador o usa la opción de subir archivo.'
-      );
+      const errName = err instanceof Error ? err.name : '';
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.warn('Permiso o acceso de cámara en vivo restringido:', errName || errMsg);
+
+      if (errName === 'NotAllowedError' || errMsg.includes('Permission denied') || errMsg.includes('not allowed')) {
+        setErrorMessage(
+          'Permiso de cámara denegado por el navegador o entorno. Puedes activar la cámara nativa de tu dispositivo o seleccionar un archivo.'
+        );
+      } else if (errName === 'NotFoundError' || errMsg.includes('not found')) {
+        setErrorMessage('No se encontró ninguna cámara conectada a este dispositivo.');
+      } else {
+        setErrorMessage('No fue posible abrir la cámara en vivo en este navegador.');
+      }
     }
   }
 
@@ -71,6 +92,21 @@ export function CameraCaptureModal({ isOpen, onClose, onCapture }: CameraCapture
       const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
       setCapturedPhoto(dataUrl);
       stopCamera();
+    }
+  }
+
+  function handleNativeFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (typeof event.target?.result === 'string') {
+          setCapturedPhoto(event.target.result);
+          stopCamera();
+          setErrorMessage(null);
+        }
+      };
+      reader.readAsDataURL(file);
     }
   }
 
@@ -99,33 +135,78 @@ export function CameraCaptureModal({ isOpen, onClose, onCapture }: CameraCapture
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="bg-neutral-950 border border-neutral-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+      <div className="bg-neutral-950 border border-neutral-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
         {/* Modal Header */}
-        <div className="p-4 border-b border-neutral-800 flex items-center justify-between text-white">
+        <div className="p-3.5 sm:p-4 border-b border-neutral-800 flex items-center justify-between text-white">
           <div className="flex items-center gap-2">
             <Camera className="w-5 h-5 text-white" />
-            <h3 className="font-bold text-sm sm:text-base">Tomar Foto con la Cámara</h3>
+            <h3 className="font-bold text-sm sm:text-base">Tomar Fotografía</h3>
           </div>
           <button
             onClick={handleClose}
-            className="p-1.5 rounded-lg hover:bg-neutral-900 text-neutral-400 hover:text-white transition-colors"
+            className="p-1.5 rounded-lg hover:bg-neutral-900 text-neutral-400 hover:text-white transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
+        {/* Hidden file inputs for Native Camera & Gallery Fallback */}
+        <input
+          ref={nativeCameraInputRef}
+          type="file"
+          accept="image/*"
+          capture={facingMode === 'user' ? 'user' : 'environment'}
+          className="hidden"
+          onChange={handleNativeFile}
+        />
+        <input
+          ref={galleryInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleNativeFile}
+        />
+
         {/* Modal Body / Camera Viewport */}
-        <div className="relative bg-black flex-1 min-h-[300px] flex items-center justify-center overflow-hidden">
+        <div className="relative bg-black flex-1 min-h-[320px] flex items-center justify-center overflow-hidden">
           {errorMessage ? (
-            <div className="p-6 text-center text-neutral-300 max-w-xs">
-              <p className="text-sm text-red-400 mb-4">{errorMessage}</p>
-              <button
-                onClick={startCamera}
-                className="px-4 py-2 bg-neutral-900 text-white rounded-lg text-xs font-medium hover:bg-neutral-800"
-              >
-                Reintentar
-              </button>
+            <div className="p-5 sm:p-6 text-center text-neutral-300 max-w-sm space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-neutral-900 text-amber-400 flex items-center justify-center mx-auto border border-neutral-800 shadow-inner">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-white mb-1">Acceso a Cámara Restringido</h4>
+                <p className="text-xs text-neutral-400 leading-relaxed">{errorMessage}</p>
+              </div>
+
+              <div className="space-y-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => nativeCameraInputRef.current?.click()}
+                  className="w-full px-4 py-2.5 bg-white text-black font-bold rounded-xl text-xs flex items-center justify-center gap-2 hover:bg-neutral-200 transition-colors shadow-xs cursor-pointer"
+                >
+                  <Smartphone className="w-4 h-4" />
+                  <span>Abrir Cámara del Dispositivo</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => galleryInputRef.current?.click()}
+                  className="w-full px-4 py-2.5 bg-neutral-900 text-neutral-200 font-semibold rounded-xl text-xs flex items-center justify-center gap-2 hover:bg-neutral-800 border border-neutral-800 transition-colors cursor-pointer"
+                >
+                  <UploadCloud className="w-4 h-4" />
+                  <span>Elegir Foto de Galería / Archivos</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={startCamera}
+                  className="text-[11px] text-neutral-500 hover:text-neutral-300 pt-1 underline block mx-auto cursor-pointer"
+                >
+                  Reintentar permiso en vivo
+                </button>
+              </div>
             </div>
           ) : capturedPhoto ? (
             <img
@@ -147,22 +228,25 @@ export function CameraCaptureModal({ isOpen, onClose, onCapture }: CameraCapture
         </div>
 
         {/* Modal Footer Controls */}
-        <div className="p-4 bg-neutral-950 border-t border-neutral-800 flex items-center justify-between gap-3">
-          {!capturedPhoto ? (
+        <div className="p-3.5 sm:p-4 bg-neutral-950 border-t border-neutral-800 flex items-center justify-between gap-2 sm:gap-3">
+          {!errorMessage && !capturedPhoto ? (
             <>
               <button
                 type="button"
                 onClick={handleToggleFacingMode}
-                className="p-2.5 rounded-xl bg-neutral-900 text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors flex items-center gap-2 text-xs"
+                className="p-2 sm:px-3 sm:py-2.5 rounded-xl bg-neutral-900 text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors flex items-center gap-1.5 text-xs cursor-pointer"
+                title="Alternar entre cámara frontal y trasera"
               >
-                <RefreshCw className="w-4 h-4" />
-                <span className="hidden sm:inline">Girar Cámara</span>
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">
+                  {facingMode === 'user' ? 'Frontal' : 'Trasera'}
+                </span>
               </button>
 
               <button
                 type="button"
                 onClick={handleTakePhoto}
-                className="px-6 py-3 rounded-xl bg-white text-black hover:bg-neutral-200 font-bold text-xs uppercase tracking-wider transition-all shadow-md flex items-center gap-2"
+                className="px-5 sm:px-7 py-2.5 rounded-xl bg-white text-black hover:bg-neutral-200 font-bold text-xs uppercase tracking-wider transition-all shadow-md flex items-center gap-2 cursor-pointer"
               >
                 <Camera className="w-4 h-4" />
                 <span>Capturar</span>
@@ -170,32 +254,42 @@ export function CameraCaptureModal({ isOpen, onClose, onCapture }: CameraCapture
 
               <button
                 type="button"
-                onClick={handleClose}
-                className="px-3 py-2 text-xs text-neutral-400 hover:text-white"
+                onClick={() => nativeCameraInputRef.current?.click()}
+                className="p-2 sm:px-3 sm:py-2.5 rounded-xl bg-neutral-900 text-neutral-400 hover:text-white text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                title="Abrir cámara del sistema"
               >
-                Cancelar
+                <Smartphone className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Cámara Nativa</span>
               </button>
             </>
-          ) : (
+          ) : capturedPhoto ? (
             <>
               <button
                 type="button"
                 onClick={handleRetake}
-                className="px-4 py-2.5 rounded-xl bg-neutral-900 text-neutral-300 hover:bg-neutral-800 hover:text-white text-xs font-semibold flex items-center gap-2"
+                className="px-3.5 py-2 rounded-xl bg-neutral-900 text-neutral-300 hover:bg-neutral-800 hover:text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
               >
-                <RefreshCw className="w-4 h-4" />
+                <RefreshCw className="w-3.5 h-3.5" />
                 <span>Tomar de Nuevo</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleConfirmPhoto}
-                className="px-6 py-2.5 rounded-xl bg-white text-black hover:bg-neutral-200 text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-md"
+                className="px-5 sm:px-6 py-2 rounded-xl bg-white text-black hover:bg-neutral-200 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-md cursor-pointer"
               >
                 <Check className="w-4 h-4" />
                 <span>Usar Esta Foto</span>
               </button>
             </>
+          ) : (
+            <button
+              type="button"
+              onClick={handleClose}
+              className="ml-auto px-4 py-2 rounded-xl bg-neutral-900 text-neutral-300 hover:bg-neutral-800 hover:text-white text-xs font-semibold"
+            >
+              Cerrar
+            </button>
           )}
         </div>
       </div>
