@@ -171,7 +171,25 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose, onOpenSet
             </div>
           </div>
 
-          {/* Section 3: Subjetividad & API Key */}
+          {/* Section 3: Clave de API Gratuita */}
+          <div className="space-y-3 pt-2 border-t border-neutral-200 dark:border-neutral-800">
+            <h4 className="text-xs font-black uppercase tracking-wider text-neutral-900 dark:text-white flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              3. ¿Cómo funciona la API Key de Gemini?
+            </h4>
+            <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-black border border-neutral-200 dark:border-neutral-800 space-y-2 text-[11.5px] text-neutral-600 dark:text-neutral-400 leading-relaxed">
+              <p>
+                EVALUA AI utiliza la inteligencia artificial de <strong>Google Gemini</strong> para analizar las imágenes.
+              </p>
+              <ul className="list-disc pl-4 space-y-1 text-[11px]">
+                <li><strong>100% Gratuita:</strong> Google ofrece un plan sin costo para desarrolladores y usuarios individuales con miles de peticiones al mes sin requerir tarjeta.</li>
+                <li><strong>¿Dónde conseguirla?</strong> Puedes entrar a <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-amber-600 dark:text-amber-400 underline font-semibold">aistudio.google.com/app/apikey</a> con tu cuenta de Google y hacer clic en <em>"Create API Key"</em>.</li>
+                <li><strong>Configuración:</strong> Ve al botón de <strong>Ajustes (⚙️)</strong> en la esquina superior, pega tu clave y guárdala. Se almacena únicamente en tu navegador.</li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Section 4: Subjetividad */}
           <div className="p-3.5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 space-y-1.5">
             <h5 className="font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5" />

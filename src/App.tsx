@@ -237,22 +237,40 @@ export default function App() {
 
       {/* Main Content Container */}
       <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-5 sm:py-8 flex flex-col justify-start">
-        {/* Error notification banner */}
+        {/* Error / API Key notification banner */}
         {errorMessage && (
-          <div className="mb-5 sm:mb-6 p-4 rounded-2xl bg-amber-50 dark:bg-neutral-900 border border-amber-200 dark:border-neutral-800 text-neutral-900 dark:text-neutral-100 text-xs sm:text-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs animate-fade-in w-full">
-            <div className="flex items-start gap-2.5">
-              <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
-              <div>
-                <p className="font-bold text-[11px] sm:text-xs uppercase tracking-wider text-neutral-800 dark:text-neutral-200">Aviso del Sistema</p>
-                <p className="text-xs text-neutral-700 dark:text-neutral-300 mt-0.5 leading-relaxed">{errorMessage}</p>
+          <div className="mb-5 sm:mb-6 p-4 sm:p-5 rounded-2xl bg-amber-500/10 dark:bg-amber-500/10 border border-amber-500/30 dark:border-amber-500/20 text-neutral-900 dark:text-neutral-100 text-xs sm:text-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm animate-fade-in w-full">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <p className="font-black text-xs uppercase tracking-wider text-amber-900 dark:text-amber-300">
+                  {errorMessage.includes('API_KEY_REQUIRED') ? 'Configuración de Clave de IA Requerida' : 'Aviso del Sistema'}
+                </p>
+                <p className="text-xs text-neutral-700 dark:text-neutral-300 leading-relaxed">
+                  {errorMessage.replace('API_KEY_REQUIRED: ', '')}
+                </p>
               </div>
             </div>
-            <button
-              onClick={() => setIsSettingsModalOpen(true)}
-              className="w-full sm:w-auto px-4 py-2 rounded-xl bg-black text-white dark:bg-white dark:text-black font-bold text-xs flex-shrink-0 hover:opacity-90 transition-opacity text-center cursor-pointer"
-            >
-              Ajustes (API Key)
-            </button>
+            <div className="flex items-center gap-2 w-full md:w-auto flex-wrap sm:flex-nowrap">
+              <button
+                onClick={() => setIsSettingsModalOpen(true)}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-black text-white dark:bg-white dark:text-black font-bold text-xs flex-shrink-0 hover:opacity-90 transition-opacity text-center cursor-pointer shadow-xs"
+              >
+                Abrir Ajustes & Guía ⚙️
+              </button>
+              {errorMessage.includes('API_KEY_REQUIRED') && (
+                <a
+                  href="https://aistudio.google.com/app/apikey"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full sm:w-auto px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs flex-shrink-0 transition-colors text-center"
+                >
+                  Obtener Clave Gratis ↗
+                </a>
+              )}
+            </div>
           </div>
         )}
 

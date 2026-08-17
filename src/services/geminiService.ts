@@ -29,11 +29,12 @@ interface ChatParams {
 
 // Client-side fallback helper
 function getClientGenAI(customApiKey?: string): GoogleGenAI {
-  const envKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (import.meta as any).env?.GEMINI_API_KEY;
+  // Vite replaces static import.meta.env.VITE_* during build time
+  const envKey = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_API_KEY || '';
   const apiKey = customApiKey?.trim() || envKey;
   if (!apiKey) {
     throw new Error(
-      'API_KEY_REQUIRED: En este despliegue estático necesitas configurar tu API Key de Gemini en el botón de Ajustes (⚙️) para habilitar el análisis de IA.'
+      'API_KEY_REQUIRED: Para generar reportes con IA, necesitas vincular una clave de API de Gemini. ¡Es 100% gratuita y la obtienes en 30 segundos desde Ajustes!'
     );
   }
   return new GoogleGenAI({
