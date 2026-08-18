@@ -12,7 +12,8 @@ import {
   Scissors,
   ArrowRight,
   ShieldCheck,
-  SplitSquareVertical
+  SplitSquareVertical,
+  Lock
 } from 'lucide-react';
 import { CATEGORY_MODES } from '../data/samples';
 import { AnalysisMode } from '../types';
@@ -407,6 +408,12 @@ export function CompareCard({
             </>
           )}
         </button>
+
+        {/* Zero-Storage Privacy Note */}
+        <div className="flex items-center justify-center gap-1.5 pt-1 text-center text-[11px] text-neutral-500 dark:text-neutral-400">
+          <Lock className="w-3.5 h-3.5 text-neutral-600 dark:text-neutral-400 flex-shrink-0" />
+          <span>Privacidad 100%: Análisis temporal en tiempo real. No se guarda ninguna foto y nadie más las ve.</span>
+        </div>
       </div>
     </div>
   );

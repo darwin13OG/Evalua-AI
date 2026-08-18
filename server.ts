@@ -643,7 +643,7 @@ Compara ambas imágenes con rigor y total sinceridad visual. Si no ves diferenci
 // Interactive Conversational Chat Endpoint (Free chat, follow-ups, essay requests, advice)
 app.post("/api/chat", async (req, res) => {
   try {
-    const { messages = [], image = null, mimeType = "image/jpeg", customApiKey = "", tone = "honest" } = req.body;
+    const { messages = [], image = null, mimeType = "image/jpeg", customApiKey = "", tone = "honest", detailLevel = "detailed" } = req.body;
 
     if (!messages || messages.length === 0) {
       return res.status(400).json({ error: "No se proporcionaron mensajes para la conversación." });
@@ -655,13 +655,28 @@ app.post("/api/chat", async (req, res) => {
       ? `MODALIDAD DE TONO EN EL CHAT: HONESTO CON HUMOR (SÁTIRA, ROAST CÓMICO Y PUNCHLINES OCURRENTES). Responde diciendo la verdad sin censura, pero viéndole el chiste a todo con humor ácido, ingenioso y gracioso sobre lo que ves en las fotos o lo que te preguntan.`
       : `MODALIDAD DE TONO EN EL CHAT: HONESTO Y SINCERO (CERO CONDICENDENCIA). Responde con objetividad, sinceridad directa y cruda sin halagos vacíos, analizando la realidad visual y estética.`;
 
-    const systemInstruction = `Eres EVALUA AI, el asistente en análisis visual, estético, proporciones y estilo.
+    const detailInstruction = detailLevel === "concise"
+      ? `MODALIDAD DE EXTENSIÓN: SINTÉTICO (Directo al grano, párrafos breves).`
+      : `MODALIDAD DE EXTENSIÓN: DETALLADO (Desarrolla análisis completos y explicaciones profundas).`;
+
+    const systemInstruction = `Eres EVALUA AI, asesor estético editorial de alto nivel, experto en visagismo, corte de cabello, proporciones faciales, morfología, colorimetría y estilo.
 ${toneInstruction}
-Tu misión en este chat:
-- Sé conciso, claro y directo.
-- Si el usuario pide un ensayo, desglósalo en 2-3 párrafos dinámicos y bien enfocados.
-- Si pide consejos específicos (corte, peinado, ropa, postura), da tips rápidos y aplicables sin exagerar.
-- Recuerda que la belleza y la percepción estética siempre son subjetivas.`;
+${detailInstruction}
+
+REGLAS FUNDAMENTALES DEL CHAT:
+1. SI EL USUARIO PIDE UN "ENSAYO", "REPORTE COMPLETO", "DIAGNÓSTICO", "ANÁLISIS DE MI FOTO" O "HACER ALGO CON ESTA INFO":
+   - GENERA UN ENSAYO EDITORIAL COMPLETO, ELEGANTE Y ESTRUCTURADO con secciones claras:
+     * ## 📋 Diagnóstico General & Puntuación Estimada (sobre 10)
+     * ## 🔍 Análisis de Proporciones, Visagismo y Rasgos (forma de rostro, simetría, tercios, mirada)
+     * ## ✨ Puntos Fuertes y Rasgos Destacados
+     * ## 🎯 Áreas de Mejora y Técnicas de Corrección Visual
+     * ## ✂️ Plan de Acción Personalizado (corte de cabello ideal, cejas, paleta de colores/ropa, postura)
+2. SI EL USUARIO HACE PREGUNTAS ESPECÍFICAS (ej: "¿Qué corte me queda?", "¿Qué colores me favorecen?"):
+   - Responde directamente con fundamentos estéticos precisos adaptados a sus facciones.
+3. FORMATO MARKDOWN OBLIGATORIO:
+   - Usa **negritas** para resaltar términos y recomendaciones clave (el sistema las subrayará visualmente).
+   - Usa títulos estructurados (## y ###).
+   - Usa listas con viñetas (*) para que la lectura sea dinámica y cómoda en móvil y escritorio.`;
 
     const contents = [];
 

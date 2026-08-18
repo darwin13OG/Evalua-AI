@@ -10,6 +10,7 @@ import { HelpModal } from './components/HelpModal';
 import { SplashScreen } from './components/SplashScreen';
 import { CameraCaptureModal } from './components/CameraCaptureModal';
 import { StoryExportModal } from './components/StoryExportModal';
+import { PdfExportModal } from './components/PdfExportModal';
 import { DetailedReportResult, ComparisonReportResult, AnalysisMode, AppSettings } from './types';
 import { generateEvaluationPDF, convertUrlToBase64 } from './utils/exportUtils';
 import { analyzeImage, compareImages } from './services/geminiService';
@@ -29,9 +30,11 @@ export default function App() {
   const [settings, setSettings] = useState<AppSettings>(() => {
     const savedKey = localStorage.getItem('evalua_custom_api_key') || '';
     const savedTone = (localStorage.getItem('evalua_tone') as AppSettings['tone']) || 'honest';
+    const savedDetail = (localStorage.getItem('evalua_detail_level') as AppSettings['detailLevel']) || 'detailed';
     return {
       customApiKey: savedKey,
       tone: savedTone,
+      detailLevel: savedDetail,
     };
   });
 
@@ -58,6 +61,7 @@ export default function App() {
   const [isCameraModalOpen, setIsCameraModalOpen] = useState<boolean>(false);
   const [cameraTarget, setCameraTarget] = useState<'single' | 'compareA' | 'compareB'>('single');
   const [isStoryModalOpen, setIsStoryModalOpen] = useState<boolean>(false);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState<boolean>(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState<boolean>(false);
 
@@ -79,6 +83,9 @@ export default function App() {
     setSettings(newSettings);
     localStorage.setItem('evalua_custom_api_key', newSettings.customApiKey);
     localStorage.setItem('evalua_tone', newSettings.tone);
+    if (newSettings.detailLevel) {
+      localStorage.setItem('evalua_detail_level', newSettings.detailLevel);
+    }
   }
 
   // Single analysis handlers
@@ -143,6 +150,7 @@ export default function App() {
         mode: selectedMode,
         customApiKey: settings.customApiKey,
         tone: settings.tone,
+        detailLevel: settings.detailLevel,
       });
 
       if (!reportData) {
@@ -183,6 +191,7 @@ export default function App() {
         mode: compareMode,
         customApiKey: settings.customApiKey,
         tone: settings.tone,
+        detailLevel: settings.detailLevel,
       });
 
       if (!reportData) {
@@ -201,8 +210,8 @@ export default function App() {
   }
 
   function handleDownloadPdf() {
-    if (!detailedReport) return;
-    generateEvaluationPDF(detailedReport, imagePreview);
+    if (!detailedReport && !comparisonReport) return;
+    setIsPdfModalOpen(true);
   }
 
   function handleSelectSuggestedMode(newMode: AnalysisMode) {
@@ -218,7 +227,7 @@ export default function App() {
   const hasAnyResult = Boolean(detailedReport || comparisonReport);
 
   return (
-    <div className="min-h-screen flex flex-col bg-white dark:bg-black text-neutral-900 dark:text-neutral-100 transition-colors duration-200">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden flex flex-col bg-white dark:bg-black text-neutral-900 dark:text-neutral-100 transition-colors duration-200">
       {/* 2-Second Intro Splash Screen with Fade-Out */}
       {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} durationMs={2000} />}
 
@@ -236,7 +245,7 @@ export default function App() {
       />
 
       {/* Main Content Container */}
-      <main className="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-5 sm:py-8 flex flex-col justify-start">
+      <main className="flex-1 max-w-4xl w-full mx-auto px-3 sm:px-6 py-3.5 sm:py-8 flex flex-col justify-start">
         {/* Error / API Key notification banner */}
         {errorMessage && (
           <div className="mb-5 sm:mb-6 p-4 sm:p-5 rounded-2xl bg-amber-500/10 dark:bg-amber-500/10 border border-amber-500/30 dark:border-amber-500/20 text-neutral-900 dark:text-neutral-100 text-xs sm:text-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm animate-fade-in w-full">
@@ -352,6 +361,7 @@ export default function App() {
                 imageA={compareImageA}
                 imageB={compareImageB}
                 onReset={handleResetCompare}
+                onDownloadPdf={() => setIsPdfModalOpen(true)}
               />
             ) : (
               <div className="w-full space-y-5 sm:space-y-6">
@@ -444,6 +454,8 @@ export default function App() {
         onClose={() => setIsSettingsModalOpen(false)}
         settings={settings}
         onSaveSettings={handleSaveSettings}
+        darkMode={darkMode}
+        onToggleTheme={handleToggleTheme}
       />
 
       {/* Live Camera Modal */}
@@ -451,6 +463,7 @@ export default function App() {
         isOpen={isCameraModalOpen}
         onClose={() => setIsCameraModalOpen(false)}
         onCapture={handleCameraCapture}
+        mode={activeTab === 'compare' ? compareMode : selectedMode}
       />
 
       {/* 9:16 Instagram/TikTok Stories Export Modal */}
@@ -460,6 +473,19 @@ export default function App() {
           onClose={() => setIsStoryModalOpen(false)}
           result={detailedReport}
           imageSrc={imagePreview}
+        />
+      )}
+
+      {/* PDF Export Theme Selection Modal */}
+      {(detailedReport || comparisonReport) && (
+        <PdfExportModal
+          isOpen={isPdfModalOpen}
+          onClose={() => setIsPdfModalOpen(false)}
+          singleReport={detailedReport}
+          comparisonReport={comparisonReport}
+          imageSrc={imagePreview}
+          imageSrcA={compareImageA}
+          imageSrcB={compareImageB}
         />
       )}
     </div>

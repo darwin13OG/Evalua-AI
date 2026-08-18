@@ -76,6 +76,7 @@ export interface ChatMessage {
 export interface AppSettings {
   customApiKey: string;
   tone: 'honest' | 'humor';
+  detailLevel?: 'concise' | 'detailed';
 }
 
 export interface MetricComparisonItem {

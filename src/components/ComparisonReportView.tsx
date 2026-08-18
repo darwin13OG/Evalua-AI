@@ -26,6 +26,7 @@ interface ComparisonReportViewProps {
   imageA: string | null;
   imageB: string | null;
   onReset: () => void;
+  onDownloadPdf?: () => void;
 }
 
 export function ComparisonReportView({
@@ -33,10 +34,15 @@ export function ComparisonReportView({
   imageA,
   imageB,
   onReset,
+  onDownloadPdf,
 }: ComparisonReportViewProps) {
   const [isExportingPDF, setIsExportingPDF] = useState(false);
 
   function handleDownloadPDF() {
+    if (onDownloadPdf) {
+      onDownloadPdf();
+      return;
+    }
     setIsExportingPDF(true);
     try {
       generateComparisonPDF(result, imageA, imageB);

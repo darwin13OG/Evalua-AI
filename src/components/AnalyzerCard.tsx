@@ -9,7 +9,9 @@ import {
   Flame, 
   Eye, 
   Activity, 
-  Scissors
+  Scissors,
+  Lock,
+  ShieldCheck
 } from 'lucide-react';
 import { CATEGORY_MODES } from '../data/samples';
 import { AnalysisMode } from '../types';
@@ -37,6 +39,7 @@ export function AnalyzerCard({
 }: AnalyzerCardProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [showModeTip, setShowModeTip] = useState(false);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -116,7 +119,10 @@ export function AnalyzerCard({
             return (
               <button
                 key={modeItem.id}
-                onClick={() => onSelectMode(modeItem.id as AnalysisMode)}
+                onClick={() => {
+                  onSelectMode(modeItem.id as AnalysisMode);
+                  setShowModeTip(true);
+                }}
                 className={`p-2.5 sm:p-3 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all text-center cursor-pointer ${
                   isSelected
                     ? 'bg-black text-white border-black dark:bg-white dark:text-black dark:border-white shadow-xs font-bold ring-1 ring-black/10 dark:ring-white/20'
@@ -260,8 +266,32 @@ export function AnalyzerCard({
           </div>
         )}
 
+        {/* Dynamic Category Tip (dismissible) */}
+        {showModeTip && (
+          <div className="p-3 rounded-xl bg-neutral-100/70 dark:bg-neutral-900/60 border border-neutral-200/80 dark:border-neutral-800/80 flex items-center justify-between gap-2 text-xs transition-all animate-fade-in">
+            <div className="flex items-center gap-2 text-neutral-700 dark:text-neutral-300 min-w-0">
+              <span className="text-amber-500 font-bold flex-shrink-0">💡 Consejo:</span>
+              <span className="text-[11.5px] truncate sm:whitespace-normal">
+                {selectedMode === 'facial' && 'Usa buena iluminación frontal, mirada al frente y expresión neutra.'}
+                {selectedMode === 'fisico' && 'Foto de medio cuerpo o cuerpo completo, postura relajada y hombros rectos.'}
+                {selectedMode === 'mirada' && 'Enfoca tus ojos con claridad a la altura de la cámara sin sombras duras.'}
+                {selectedMode === 'peinado' && 'Asegúrate de que se aprecie la forma del corte y el volumen del cabello.'}
+                {selectedMode === 'aura' && 'Pose natural y espontánea que refleje tu estilo auténtico.'}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowModeTip(false)}
+              className="p-1 rounded-md text-neutral-400 hover:text-neutral-700 dark:hover:text-white transition-colors flex-shrink-0 cursor-pointer"
+              title="Cerrar consejo"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         {/* Submit Generate Report Button */}
-        <div className="pt-2">
+        <div className="pt-1">
           <button
             type="button"
             onClick={onSubmit}
@@ -280,6 +310,12 @@ export function AnalyzerCard({
               </>
             )}
           </button>
+        </div>
+
+        {/* Zero-Storage Privacy Note */}
+        <div className="flex items-center justify-center gap-1.5 pt-1 text-center text-[11px] text-neutral-500 dark:text-neutral-400">
+          <Lock className="w-3.5 h-3.5 text-neutral-600 dark:text-neutral-400 flex-shrink-0" />
+          <span>Privacidad 100%: Análisis temporal en tiempo real. No se guarda ninguna foto y nadie más las ve.</span>
         </div>
       </div>
     </div>

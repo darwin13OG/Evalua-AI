@@ -8,6 +8,7 @@ interface AnalyzeParams {
   question?: string;
   customApiKey?: string;
   tone?: 'honest' | 'humor';
+  detailLevel?: 'concise' | 'detailed';
 }
 
 interface CompareParams {
@@ -18,6 +19,7 @@ interface CompareParams {
   mode: AnalysisMode;
   customApiKey?: string;
   tone?: 'honest' | 'humor';
+  detailLevel?: 'concise' | 'detailed';
 }
 
 interface ChatParams {
@@ -25,6 +27,7 @@ interface ChatParams {
   image?: string | null;
   customApiKey?: string;
   tone?: 'honest' | 'humor';
+  detailLevel?: 'concise' | 'detailed';
 }
 
 // Client-side fallback helper
@@ -176,9 +179,18 @@ export async function analyzeImage(params: AnalyzeParams): Promise<DetailedRepor
 - strengths: solo rasgos anatómicamente sobresalientes de forma genuina.
 - areasForImprovement: defectos o aspectos desfavorables reales sin rodeos (muecas, peinado, asimetría, postura, corte).`;
 
+  const detailLevelInstruction =
+    params.detailLevel === 'concise'
+      ? `MODALIDAD DE EXTENSIÓN: SINTÉTICO Y DIRECTO (LECTURA RÁPIDA DE 30 SEGUNDOS).
+- Mantén cada oración corta, al grano y sin rodeos extensos.
+- honestAnalysis y essaySummary deben ser precisos y directos (máximo 1-2 líneas por punto).`
+      : `MODALIDAD DE EXTENSIÓN: DETALLADO Y COMPLETO.
+- Proporciona un diagnóstico minucioso con contexto anatómico, explicaciones claras y recomendaciones paso a paso.`;
+
   const systemInstruction = `Eres EVALUA AI, un analizador estético visual sincero y honesto.
 Generas un reporte claro, conciso y directo en formato JSON.
 ${toneInstruction}
+${detailLevelInstruction}
 ${modeInstructions}
 
 Instrucciones generales obligatorias:
@@ -377,9 +389,15 @@ export async function compareImages(params: CompareParams): Promise<ComparisonRe
       ? `MODALIDAD DE TONO: HONESTO CON HUMOR (ROAST CÓMICO & SÁTIRA REALISTA). Di la verdad con total franqueza, pero haciendo comentarios divertidos, ocurrentes y estilo roast que destaquen con gracia las diferencias o la falta de ellas.`
       : `MODALIDAD DE TONO: HONESTO Y SINCERO (CERO CONDICENDENCIA). Di la verdad anatómica y visual cruda, clara y fundamentada en lo que se ve en ambas fotos, sin suavizar ni inventar.`;
 
+  const detailLevelInstruction =
+    params.detailLevel === 'concise'
+      ? `MODALIDAD DE EXTENSIÓN: SINTÉTICO & DIRECTO. Conclusiones y cambios clave breves y rápidos de leer.`
+      : `MODALIDAD DE EXTENSIÓN: DETALLADO & COMPLETO. Justifica y detalla meticulosamente cada cambio y recomendación.`;
+
   const systemInstruction = `Eres EVALUA AI en modo ANÁLISIS COMPARATIVO DE EVOLUCIÓN (Foto A: "Antes/Base" vs. Foto B: "Después/Evolución").
 Categoría a evaluar: "${params.mode.toUpperCase()}".
 ${toneInstruction}
+${detailLevelInstruction}
 
 *** REGLA DE ORO DE VERACIDAD Y HONESTIDAD ABSOLUTA ***
 - Si ambas fotos son la misma imagen o no presentan cambios reales:
@@ -589,13 +607,35 @@ export async function chatWithAdvisor(params: ChatParams): Promise<string> {
       ? 'MODALIDAD DE TONO EN EL CHAT: HONESTO CON HUMOR (SÁTIRA, ROAST CÓMICO Y PUNCHLINES OCURRENTES). Responde diciendo la verdad sin censura, pero viéndole el chiste a todo con humor ácido, ingenioso y gracioso sobre lo que ves en las fotos o lo que te preguntan.'
       : 'MODALIDAD DE TONO EN EL CHAT: HONESTO Y SINCERO (CERO CONDICENDENCIA). Responde con objetividad, sinceridad directa y cruda sin halagos vacíos, analizando la realidad visual y estética.';
 
+  const detailLevelInstruction =
+    params.detailLevel === 'concise'
+      ? 'MODALIDAD DE EXTENSIÓN: Sé breve y conciso (máximo 1-2 párrafos directos al grano).'
+      : 'MODALIDAD DE EXTENSIÓN: Da respuestas completas, bien explicadas y detalladas.';
+
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
     contents: {
       parts,
     },
     config: {
-      systemInstruction: `Eres el asesor de EVALUA AI. ${toneInstruction} Eres experto en estética, corte de cabello, proporciones y estilo sin pelos en la lengua.`,
+      systemInstruction: `Eres EVALUA AI, asesor estético editorial de alto nivel, experto en visagismo, corte de cabello, proporciones faciales, morfología, colorimetría y estilo.
+${toneInstruction}
+${detailLevelInstruction}
+
+REGLAS FUNDAMENTALES DEL CHAT:
+1. SI EL USUARIO PIDE UN "ENSAYO", "REPORTE COMPLETO", "DIAGNÓSTICO", "ANÁLISIS DE MI FOTO" O "HACER ALGO CON ESTA INFO":
+   - GENERA UN ENSAYO EDITORIAL COMPLETO, ELEGANTE Y ESTRUCTURADO con secciones claras:
+     * ## 📋 Diagnóstico General & Puntuación Estimada (sobre 10)
+     * ## 🔍 Análisis de Proporciones, Visagismo y Rasgos (forma de rostro, simetría, tercios, mirada)
+     * ## ✨ Puntos Fuertes y Rasgos Destacados
+     * ## 🎯 Áreas de Mejora y Técnicas de Corrección Visual
+     * ## ✂️ Plan de Acción Personalizado (corte de cabello ideal, cejas, paleta de colores/ropa, postura)
+2. SI EL USUARIO HACE PREGUNTAS ESPECÍFICAS (ej: "¿Qué corte me queda?", "¿Qué colores me favorecen?"):
+   - Responde directamente con fundamentos estéticos precisos adaptados a sus facciones.
+3. FORMATO MARKDOWN OBLIGATORIO:
+   - Usa **negritas** para resaltar términos y recomendaciones clave (el sistema las subrayará visualmente).
+   - Usa títulos estructurados (## y ###).
+   - Usa listas con viñetas (*) para que la lectura sea dinámica y cómoda en móvil y escritorio.`,
       temperature: 0.5,
     },
   });
