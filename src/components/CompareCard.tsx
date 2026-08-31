@@ -177,36 +177,37 @@ export function CompareCard({
                     processFile(e.dataTransfer.files[0], onImageSelectedA);
                   }
                 }}
-                className={`border-2 border-dashed rounded-2xl p-5 text-center transition-all flex flex-col items-center justify-center min-h-[190px] ${
+                className={`border rounded-2xl p-4 sm:p-6 text-center transition-all flex flex-col items-center justify-center min-h-[170px] sm:min-h-[195px] ${
                   isDraggingA
-                    ? 'border-black dark:border-white bg-neutral-100 dark:bg-neutral-900'
-                    : 'border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-black hover:border-neutral-400 dark:hover:border-neutral-700'
+                    ? 'border-black dark:border-white bg-neutral-100 dark:bg-neutral-900 ring-2 ring-black/10 dark:ring-white/20'
+                    : 'border-neutral-200 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-900/50 hover:border-neutral-300 dark:hover:border-neutral-700'
                 }`}
               >
-                <div className="w-10 h-10 rounded-xl bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center mb-2.5">
-                  <UploadCloud className="w-5 h-5 text-neutral-700 dark:text-neutral-300" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center mb-2.5 shadow-xs">
+                  <Camera className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500 dark:text-amber-400" />
                 </div>
-                <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200">
-                  Foto Antes / Punto de Partida
+                <p className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-white">
+                  Foto Base / Punto de Partida
                 </p>
-                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 mb-3">
-                  Arrastra o selecciona tu foto base
+                <p className="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 mb-3.5 max-w-xs">
+                  <span className="hidden sm:inline">Arrastra tu archivo o </span>Toma una foto en vivo o sube de tu galería
                 </p>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRefA.current?.click()}
-                    className="px-3 py-1.5 rounded-lg bg-black text-white dark:bg-white dark:text-black text-xs font-bold cursor-pointer"
-                  >
-                    Examinar
-                  </button>
+                <div className="grid grid-cols-2 gap-2 w-full max-w-xs">
                   <button
                     type="button"
                     onClick={() => onOpenLiveCameraFor('A')}
-                    className="px-3 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-800 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                    className="py-2.5 px-3 rounded-xl bg-black text-white dark:bg-white dark:text-black text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition-all"
                   >
-                    <Camera className="w-3.5 h-3.5" />
-                    Cámara
+                    <Camera className="w-3.5 h-3.5 text-amber-300 dark:text-amber-600" />
+                    <span>Cámara</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRefA.current?.click()}
+                    className="py-2.5 px-3 rounded-xl bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition-all"
+                  >
+                    <UploadCloud className="w-3.5 h-3.5" />
+                    <span>Galería</span>
                   </button>
                 </div>
                 <input
@@ -296,36 +297,37 @@ export function CompareCard({
                     processFile(e.dataTransfer.files[0], onImageSelectedB);
                   }
                 }}
-                className={`border-2 border-dashed rounded-2xl p-5 text-center transition-all flex flex-col items-center justify-center min-h-[190px] ${
+                className={`border rounded-2xl p-4 sm:p-6 text-center transition-all flex flex-col items-center justify-center min-h-[170px] sm:min-h-[195px] ${
                   isDraggingB
-                    ? 'border-black dark:border-white bg-neutral-100 dark:bg-neutral-900'
-                    : 'border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-black hover:border-neutral-400 dark:hover:border-neutral-700'
+                    ? 'border-black dark:border-white bg-neutral-100 dark:bg-neutral-900 ring-2 ring-black/10 dark:ring-white/20'
+                    : 'border-neutral-200 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-900/50 hover:border-neutral-300 dark:hover:border-neutral-700'
                 }`}
               >
-                <div className="w-10 h-10 rounded-xl bg-neutral-100 dark:bg-neutral-900 flex items-center justify-center mb-2.5">
-                  <UploadCloud className="w-5 h-5 text-neutral-700 dark:text-neutral-300" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center mb-2.5 shadow-xs">
+                  <Camera className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500 dark:text-amber-400" />
                 </div>
-                <p className="text-xs font-bold text-neutral-800 dark:text-neutral-200">
+                <p className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-white">
                   Foto Después / Resultado Actual
                 </p>
-                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 mt-1 mb-3">
-                  Arrastra o selecciona tu foto reciente
+                <p className="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 mb-3.5 max-w-xs">
+                  <span className="hidden sm:inline">Arrastra tu archivo o </span>Toma una foto en vivo o sube de tu galería
                 </p>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRefB.current?.click()}
-                    className="px-3 py-1.5 rounded-lg bg-black text-white dark:bg-white dark:text-black text-xs font-bold cursor-pointer"
-                  >
-                    Examinar
-                  </button>
+                <div className="grid grid-cols-2 gap-2 w-full max-w-xs">
                   <button
                     type="button"
                     onClick={() => onOpenLiveCameraFor('B')}
-                    className="px-3 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-neutral-800 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                    className="py-2.5 px-3 rounded-xl bg-black text-white dark:bg-white dark:text-black text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition-all"
                   >
-                    <Camera className="w-3.5 h-3.5" />
-                    Cámara
+                    <Camera className="w-3.5 h-3.5 text-amber-300 dark:text-amber-600" />
+                    <span>Cámara</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRefB.current?.click()}
+                    className="py-2.5 px-3 rounded-xl bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-700 text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition-all"
+                  >
+                    <UploadCloud className="w-3.5 h-3.5" />
+                    <span>Galería</span>
                   </button>
                 </div>
                 <input

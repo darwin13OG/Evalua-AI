@@ -1,25 +1,20 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Camera, 
   X, 
   RefreshCw, 
   Check, 
-  UploadCloud, 
+  Image as ImageIcon, 
   Smartphone, 
   AlertTriangle, 
-  Eye, 
-  Sparkles, 
-  Activity, 
-  Scissors, 
-  Flame, 
-  Lock,
-  Focus,
-  Timer,
-  Sun,
-  Grid,
+  Timer, 
+  Zap, 
+  Grid, 
   FlipHorizontal,
-  Zap,
-  Play
+  Sliders,
+  Keyboard,
+  Sparkles,
+  Sun
 } from 'lucide-react';
 import { AnalysisMode } from '../types';
 
@@ -31,10 +26,9 @@ interface CameraCaptureModalProps {
 }
 
 type TimerDuration = 0 | 3 | 5 | 10;
-type GuideType = 'silhouette' | 'grid' | 'none';
 
-// Web Audio API synth sound generator (No external assets required)
-function playCameraAudio(type: 'countdown' | 'shutter') {
+// Web Audio API synthesizer for crisp shutter click & countdown beeps
+function playCameraSound(type: 'countdown' | 'shutter') {
   try {
     const AudioCtxClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!AudioCtxClass) return;
@@ -44,27 +38,26 @@ function playCameraAudio(type: 'countdown' | 'shutter') {
 
     if (type === 'countdown') {
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(900, ctx.currentTime);
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.12);
-    } else {
-      // Shutter click sound
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(1400, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.1);
-      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start();
       osc.stop(ctx.currentTime + 0.1);
+    } else {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(1200, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(220, ctx.currentTime + 0.08);
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.08);
     }
   } catch {
-    // Ignore audio errors if browser autoplay policies block
+    // Ignore audio restrictions gracefully
   }
 }
 
@@ -85,24 +78,111 @@ export function CameraCaptureModal({
   const [isMirrored, setIsMirrored] = useState<boolean>(true);
   const [timerSeconds, setTimerSeconds] = useState<TimerDuration>(0);
   const [countingDown, setCountingDown] = useState<number | null>(null);
-  const [guideMode, setGuideMode] = useState<GuideType>('silhouette');
-  const [isScreenFlashOn, setIsScreenFlashOn] = useState<boolean>(false);
-  const [isShutterEffect, setIsShutterEffect] = useState<boolean>(false);
+  const [showGrid, setShowGrid] = useState<boolean>(false);
+  const [showGuide, setShowGuide] = useState<boolean>(true);
+  const [isRingLightOn, setIsRingLightOn] = useState<boolean>(false);
+  const [isShutterFlashing, setIsShutterFlashing] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isCameraLoading, setIsCameraLoading] = useState<boolean>(false);
 
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Close on Escape key
+  const triggerCapture = useCallback(() => {
+    if (!videoRef.current || !canvasRef.current) return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+
+    setIsShutterFlashing(true);
+    playCameraSound('shutter');
+    setTimeout(() => setIsShutterFlashing(false), 200);
+
+    canvas.width = video.videoWidth || 1920;
+    canvas.height = video.videoHeight || 1080;
+
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      if (facingMode === 'user' && isMirrored) {
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+      }
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      setCapturedPhoto(dataUrl);
+      stopCamera();
+    }
+  }, [facingMode, isMirrored]);
+
+  const handleStartCountdown = useCallback(() => {
+    if (timerSeconds === 0) {
+      triggerCapture();
+      return;
+    }
+
+    setCountingDown(timerSeconds);
+    playCameraSound('countdown');
+
+    let remaining = timerSeconds;
+    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+
+    timerIntervalRef.current = setInterval(() => {
+      remaining -= 1;
+      if (remaining > 0) {
+        setCountingDown(remaining);
+        playCameraSound('countdown');
+      } else {
+        if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+        setCountingDown(null);
+        triggerCapture();
+      }
+    }, 1000);
+  }, [timerSeconds, triggerCapture]);
+
+  const handleCancelCountdown = useCallback(() => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    setCountingDown(null);
+  }, []);
+
+  const handleCycleTimer = useCallback(() => {
+    setTimerSeconds((prev) => {
+      if (prev === 0) return 3;
+      if (prev === 3) return 5;
+      if (prev === 5) return 10;
+      return 0;
+    });
+  }, []);
+
+  function handleClose() {
+    handleCancelCountdown();
+    stopCamera();
+    setCapturedPhoto(null);
+    setErrorMessage(null);
+    onClose();
+  }
+
+  // Keyboard shortcuts for Desktop / PC users
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape' && isOpen) {
+      if (!isOpen) return;
+
+      if (e.key === 'Escape') {
         handleClose();
+      } else if (e.code === 'Space' && !capturedPhoto && !errorMessage && countingDown === null) {
+        e.preventDefault();
+        handleStartCountdown();
+      } else if (e.key.toLowerCase() === 'g' && !capturedPhoto) {
+        setShowGrid((prev) => !prev);
+      } else if (e.key.toLowerCase() === 't' && !capturedPhoto) {
+        handleCycleTimer();
+      } else if (e.key.toLowerCase() === 'm' && !capturedPhoto) {
+        setIsMirrored((prev) => !prev);
       }
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen]);
+  }, [isOpen, capturedPhoto, errorMessage, countingDown, handleStartCountdown, handleCycleTimer]);
 
   useEffect(() => {
     if (isOpen && !capturedPhoto) {
@@ -125,7 +205,7 @@ export function CameraCaptureModal({
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setIsCameraLoading(false);
       setErrorMessage(
-        'Tu navegador o este entorno no admite la cámara en vivo directa. Puedes usar la cámara nativa de tu dispositivo o seleccionar una foto.'
+        'Tu navegador no admite acceso directo a la cámara web. Puedes abrir la cámara de tu celular o elegir una foto de la galería.'
       );
       return;
     }
@@ -135,7 +215,7 @@ export function CameraCaptureModal({
         video: {
           facingMode: facingMode,
           width: { ideal: 1920 },
-          height: { ideal: 1920 },
+          height: { ideal: 1080 },
         },
         audio: false,
       });
@@ -150,12 +230,12 @@ export function CameraCaptureModal({
 
       if (errName === 'NotAllowedError' || errMsg.includes('Permission denied') || errMsg.includes('not allowed')) {
         setErrorMessage(
-          'Permiso de cámara denegado. Puedes abrir la cámara de tu dispositivo o seleccionar una foto de tu galería.'
+          'Permiso de cámara no concedido. Puedes tomar la foto con la app de cámara de tu dispositivo o seleccionar una imagen.'
         );
       } else if (errName === 'NotFoundError' || errMsg.includes('not found')) {
-        setErrorMessage('No se detectó cámara disponible en el dispositivo.');
+        setErrorMessage('No se encontró una cámara conectada en tu dispositivo.');
       } else {
-        setErrorMessage('No fue posible abrir la cámara en vivo en este navegador.');
+        setErrorMessage('No fue posible iniciar la cámara en este navegador.');
       }
     } finally {
       setIsCameraLoading(false);
@@ -169,84 +249,7 @@ export function CameraCaptureModal({
     }
   }
 
-  function triggerShutterCapture() {
-    if (!videoRef.current || !canvasRef.current) return;
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-
-    // Flash animation & Shutter sound
-    setIsShutterEffect(true);
-    playCameraAudio('shutter');
-    setTimeout(() => setIsShutterEffect(false), 200);
-
-    canvas.width = video.videoWidth || 1280;
-    canvas.height = video.videoHeight || 720;
-
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      // If front camera and mirrored, flip horizontally on canvas
-      if (facingMode === 'user' && isMirrored) {
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
-      }
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-      setCapturedPhoto(dataUrl);
-      stopCamera();
-    }
-  }
-
-  function handleStartCaptureFlow() {
-    if (timerSeconds === 0) {
-      triggerShutterCapture();
-      return;
-    }
-
-    setCountingDown(timerSeconds);
-    playCameraAudio('countdown');
-
-    let current = timerSeconds;
-    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-
-    timerIntervalRef.current = setInterval(() => {
-      current -= 1;
-      if (current > 0) {
-        setCountingDown(current);
-        playCameraAudio('countdown');
-      } else {
-        if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-        setCountingDown(null);
-        triggerShutterCapture();
-      }
-    }, 1000);
-  }
-
-  function handleCancelTimer() {
-    if (timerIntervalRef.current) {
-      clearInterval(timerIntervalRef.current);
-      timerIntervalRef.current = null;
-    }
-    setCountingDown(null);
-  }
-
-  function handleCycleTimer() {
-    setTimerSeconds((prev) => {
-      if (prev === 0) return 3;
-      if (prev === 3) return 5;
-      if (prev === 5) return 10;
-      return 0;
-    });
-  }
-
-  function handleCycleGuide() {
-    setGuideMode((prev) => {
-      if (prev === 'silhouette') return 'grid';
-      if (prev === 'grid') return 'none';
-      return 'silhouette';
-    });
-  }
-
-  function handleNativeFile(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleNativeFileInput(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -273,102 +276,158 @@ export function CameraCaptureModal({
     setCountingDown(null);
   }
 
-  function handleToggleFacingMode() {
+  function handleToggleCamera() {
     setFacingMode((prev) => (prev === 'user' ? 'environment' : 'user'));
-  }
-
-  function handleClose() {
-    handleCancelTimer();
-    stopCamera();
-    setCapturedPhoto(null);
-    setErrorMessage(null);
-    onClose();
   }
 
   if (!isOpen) return null;
 
-  function getCategoryGuideInfo() {
-    switch (mode) {
-      case 'facial':
-        return {
-          title: 'Guía Facial',
-          tip: 'Centra tu rostro en el óvalo, mirada fija al frente y hombros alineados.',
-          icon: <Sparkles className="w-3.5 h-3.5 text-amber-400" />,
-        };
-      case 'fisico':
-        return {
-          title: 'Guía de Físico & Postura',
-          tip: 'Encuadre de medio o cuerpo entero con postura erguida natural.',
-          icon: <Activity className="w-3.5 h-3.5 text-emerald-400" />,
-        };
-      case 'mirada':
-        return {
-          title: 'Guía de Mirada',
-          tip: 'Enfoca tus ojos en la franja central con buena luz sin sombras.',
-          icon: <Eye className="w-3.5 h-3.5 text-blue-400" />,
-        };
-      case 'peinado':
-        return {
-          title: 'Guía de Peinado',
-          tip: 'Asegúrate de mostrar todo el volumen superior y líneas de patillas/laterales.',
-          icon: <Scissors className="w-3.5 h-3.5 text-purple-400" />,
-        };
-      case 'aura':
-      default:
-        return {
-          title: 'Guía Estética',
-          tip: 'Captura tu expresión y presencia espontánea en tu pose habitual.',
-          icon: <Flame className="w-3.5 h-3.5 text-rose-400" />,
-        };
-    }
-  }
-
-  const guideInfo = getCategoryGuideInfo();
-
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/90 backdrop-blur-md animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 md:p-6 bg-black/90 sm:backdrop-blur-md animate-fade-in select-none overflow-hidden"
       onClick={handleClose}
     >
+      {/* 
+        RESPONSIVE CONTAINER:
+        - Mobile (< sm): Fullscreen edge-to-edge native camera app style (h-full w-full rounded-none).
+        - PC / Desktop (sm & md & lg): Spacious studio window (sm:max-w-2xl md:max-w-3xl lg:max-w-4xl sm:rounded-3xl border border-neutral-800 shadow-2xl).
+      */}
       <div 
-        className={`bg-neutral-950 border border-neutral-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[96vh] relative ${
-          isScreenFlashOn ? 'ring-8 ring-amber-100/90 shadow-[0_0_80px_rgba(255,255,255,0.4)]' : ''
+        className={`bg-neutral-950 w-full h-full sm:h-auto sm:max-h-[92vh] sm:max-w-2xl md:max-w-3xl lg:max-w-4xl sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between relative sm:border sm:border-neutral-800 transition-all ${
+          isRingLightOn ? 'ring-4 sm:ring-8 ring-amber-100/90 shadow-[0_0_90px_rgba(255,255,255,0.45)]' : ''
         }`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Modal Header Bar */}
-        <div className="px-3.5 py-3 sm:px-5 sm:py-3.5 border-b border-neutral-800 flex items-center justify-between text-white bg-neutral-900/90 flex-shrink-0">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-black text-amber-400 flex items-center justify-center border border-neutral-800 flex-shrink-0">
-              <Camera className="w-3.5 h-3.5" />
-            </div>
-            <div className="min-w-0">
-              <h3 className="font-bold text-xs sm:text-sm truncate">Cámara Inteligente</h3>
-              <p className="text-[10px] text-neutral-400 font-mono uppercase truncate">
-                Modo: {mode} • {facingMode === 'user' ? 'Frontal' : 'Trasera'}
-              </p>
-            </div>
-          </div>
+        {/* Hidden inputs for native camera and gallery */}
+        <input
+          ref={nativeCameraInputRef}
+          type="file"
+          accept="image/*"
+          capture={facingMode === 'user' ? 'user' : 'environment'}
+          className="hidden"
+          onChange={handleNativeFileInput}
+        />
+        <input
+          ref={galleryInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleNativeFileInput}
+        />
 
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-            {/* Quick Native Camera shortcut */}
-            {!capturedPhoto && (
+        {/* 
+          1. TOP BAR:
+          - Mobile: Translucent floating pill overlay.
+          - Desktop (sm+): Full studio header bar with title, keyboard shortcuts & pro toggles.
+        */}
+        <div className="z-30 p-3 sm:px-6 sm:py-4 flex items-center justify-between pointer-events-auto bg-gradient-to-b from-black/80 via-black/40 to-transparent sm:bg-neutral-900/90 sm:border-b sm:border-neutral-800/80">
+          {/* Left: Mode Badge & Studio Title */}
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-2 pr-3 border-r border-neutral-700">
+              <Camera className="w-4 h-4 text-amber-400" />
+              <span className="text-xs font-bold text-white tracking-wide">Estudio Fotográfico IA</span>
+            </div>
+
+            <span className="px-2.5 py-1 rounded-full bg-black/60 sm:bg-neutral-800 backdrop-blur-md border border-white/15 sm:border-neutral-700 text-[11px] font-bold text-white uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+              <span>Modo: {mode}</span>
+            </span>
+
+            {/* Desktop Ring Light Quick Toggle */}
+            {!capturedPhoto && !errorMessage && (
               <button
                 type="button"
-                onClick={() => nativeCameraInputRef.current?.click()}
-                className="px-2 sm:px-2.5 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                title="Abrir cámara del celular del sistema"
+                onClick={() => setIsRingLightOn(!isRingLightOn)}
+                className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all cursor-pointer ${
+                  isRingLightOn 
+                    ? 'bg-amber-300 text-black border-amber-300 shadow-sm' 
+                    : 'bg-neutral-800 text-neutral-300 border-neutral-700 hover:text-white hover:bg-neutral-700'
+                }`}
+                title="Luz de relleno / Ring light"
               >
-                <Smartphone className="w-3.5 h-3.5 text-amber-400" />
-                <span className="hidden xs:inline">App Nativa</span>
+                <Zap className="w-3.5 h-3.5" />
+                <span>{isRingLightOn ? 'Luz Activa' : 'Luz Ring'}</span>
               </button>
+            )}
+          </div>
+
+          {/* Center (Desktop only): Keyboard hints */}
+          <div className="hidden lg:flex items-center gap-2 text-[11px] text-neutral-400">
+            <Keyboard className="w-3.5 h-3.5 text-neutral-500" />
+            <span>Espacio: Capturar • G: Cuadrícula • T: Reloj • Esc: Salir</span>
+          </div>
+
+          {/* Right Controls: Timer, Grid, Mirror (Desktop), Close */}
+          <div className="flex items-center gap-2">
+            {!capturedPhoto && !errorMessage && (
+              <>
+                {/* Mobile Ring Light Icon Only */}
+                <button
+                  type="button"
+                  onClick={() => setIsRingLightOn(!isRingLightOn)}
+                  className={`sm:hidden p-2 rounded-full backdrop-blur-md border transition-all cursor-pointer ${
+                    isRingLightOn 
+                      ? 'bg-amber-300 text-black border-amber-300 shadow-sm' 
+                      : 'bg-black/60 text-white/80 border-white/15 hover:text-white hover:bg-black/80'
+                  }`}
+                  title="Luz de relleno"
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                </button>
+
+                {/* Timer Cycle Pill */}
+                <button
+                  type="button"
+                  onClick={handleCycleTimer}
+                  disabled={countingDown !== null}
+                  className={`px-3 py-1.5 rounded-full backdrop-blur-md border text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    timerSeconds > 0
+                      ? 'bg-amber-500 text-black border-amber-500 shadow-sm'
+                      : 'bg-black/60 sm:bg-neutral-800 text-white/90 sm:text-neutral-300 border-white/15 sm:border-neutral-700 hover:text-white hover:bg-neutral-700'
+                  }`}
+                  title="Temporizador (0s, 3s, 5s, 10s)"
+                >
+                  <Timer className="w-3.5 h-3.5" />
+                  <span>{timerSeconds === 0 ? 'Sin reloj' : `${timerSeconds}s`}</span>
+                </button>
+
+                {/* Grid Overlay Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setShowGrid(!showGrid)}
+                  className={`p-2 sm:px-3 sm:py-1.5 rounded-full backdrop-blur-md border transition-all flex items-center gap-1.5 text-xs font-medium cursor-pointer ${
+                    showGrid
+                      ? 'bg-white text-black border-white shadow-sm'
+                      : 'bg-black/60 sm:bg-neutral-800 text-white/80 sm:text-neutral-300 border-white/15 sm:border-neutral-700 hover:text-white hover:bg-neutral-700'
+                  }`}
+                  title="Cuadrícula 3x3 de composición"
+                >
+                  <Grid className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Guía</span>
+                </button>
+
+                {/* Mirror Toggle (Desktop) */}
+                <button
+                  type="button"
+                  onClick={() => setIsMirrored(!isMirrored)}
+                  className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all cursor-pointer ${
+                    isMirrored
+                      ? 'bg-neutral-800 text-neutral-200 border-neutral-700'
+                      : 'bg-neutral-900 text-neutral-400 border-neutral-800'
+                  }`}
+                  title="Efecto espejo"
+                >
+                  <FlipHorizontal className="w-3.5 h-3.5" />
+                  <span>Espejo</span>
+                </button>
+              </>
             )}
 
             {/* Close Button */}
             <button
               type="button"
               onClick={handleClose}
-              className="p-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white transition-colors cursor-pointer"
+              className="p-2 sm:p-2 rounded-full bg-black/60 sm:bg-neutral-800 backdrop-blur-md border border-white/15 sm:border-neutral-700 text-white/90 sm:text-neutral-300 hover:text-white hover:bg-neutral-700 transition-colors cursor-pointer"
               title="Cerrar cámara"
             >
               <X className="w-4 h-4" />
@@ -376,267 +435,137 @@ export function CameraCaptureModal({
           </div>
         </div>
 
-        {/* Hidden file inputs for Native Camera & Gallery Fallback */}
-        <input
-          ref={nativeCameraInputRef}
-          type="file"
-          accept="image/*"
-          capture={facingMode === 'user' ? 'user' : 'environment'}
-          className="hidden"
-          onChange={handleNativeFile}
-        />
-        <input
-          ref={galleryInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={handleNativeFile}
-        />
-
-        {/* Camera Quick Control Toolbar (Timer, Guides, Flash, Mirror) */}
-        {!errorMessage && !capturedPhoto && (
-          <div className="px-3 py-2 bg-neutral-900 border-b border-neutral-800 flex items-center justify-between gap-1 overflow-x-auto no-scrollbar flex-shrink-0 text-xs">
-            <div className="flex items-center gap-1.5">
-              {/* Timer button */}
-              <button
-                type="button"
-                onClick={handleCycleTimer}
-                disabled={countingDown !== null}
-                className={`px-2.5 py-1 rounded-lg font-bold text-[11px] flex items-center gap-1 transition-all cursor-pointer ${
-                  timerSeconds > 0
-                    ? 'bg-amber-500 text-black shadow-xs'
-                    : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
-                }`}
-                title="Temporizador de captura (0s, 3s, 5s, 10s)"
-              >
-                <Timer className="w-3.5 h-3.5" />
-                <span>{timerSeconds === 0 ? 'Sin reloj' : `${timerSeconds}s`}</span>
-              </button>
-
-              {/* Guide Mode Toggle */}
-              <button
-                type="button"
-                onClick={handleCycleGuide}
-                className={`px-2.5 py-1 rounded-lg font-bold text-[11px] flex items-center gap-1 transition-all cursor-pointer ${
-                  guideMode !== 'none'
-                    ? 'bg-white text-black shadow-xs'
-                    : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
-                }`}
-                title="Alternar Guías de alineación"
-              >
-                {guideMode === 'grid' ? <Grid className="w-3.5 h-3.5" /> : <Focus className="w-3.5 h-3.5" />}
-                <span className="hidden xs:inline">
-                  {guideMode === 'silhouette' ? 'Silueta' : guideMode === 'grid' ? 'Cuadrícula' : 'Sin Guía'}
-                </span>
-              </button>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              {/* Screen Flash / Ring Light */}
-              <button
-                type="button"
-                onClick={() => setIsScreenFlashOn(!isScreenFlashOn)}
-                className={`p-1.5 sm:px-2 sm:py-1 rounded-lg font-bold text-[11px] flex items-center gap-1 transition-all cursor-pointer ${
-                  isScreenFlashOn
-                    ? 'bg-amber-300 text-black shadow-xs'
-                    : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
-                }`}
-                title="Luz de pantalla / Ring light para selfies oscuras"
-              >
-                <Zap className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Luz Ring</span>
-              </button>
-
-              {/* Mirror selfie toggle (only for front camera) */}
-              {facingMode === 'user' && (
-                <button
-                  type="button"
-                  onClick={() => setIsMirrored(!isMirrored)}
-                  className={`p-1.5 sm:px-2 sm:py-1 rounded-lg font-bold text-[11px] flex items-center gap-1 transition-all cursor-pointer ${
-                    isMirrored
-                      ? 'bg-neutral-800 text-white border border-neutral-700'
-                      : 'bg-neutral-800 text-neutral-400'
-                  }`}
-                  title="Efecto espejo en cámara frontal"
-                >
-                  <FlipHorizontal className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">{isMirrored ? 'Espejo' : 'Real'}</span>
-                </button>
-              )}
-
-              {/* Camera Flip button */}
-              <button
-                type="button"
-                onClick={handleToggleFacingMode}
-                className="px-2.5 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                title="Cambiar entre cámara frontal y trasera"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span className="hidden xs:inline">{facingMode === 'user' ? 'Frontal' : 'Trasera'}</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Modal Body / Camera Viewport Area */}
-        <div className="relative bg-black flex-1 min-h-[340px] sm:min-h-[420px] flex items-center justify-center overflow-hidden select-none">
+        {/* 
+          2. CAMERA VIEWFINDER CANVAS:
+          - Generous height on PC (sm:min-h-[460px] md:min-h-[520px]).
+          - Edge-to-edge aspect ratio on Mobile.
+        */}
+        <div className="relative flex-1 bg-black flex items-center justify-center overflow-hidden min-h-[420px] sm:min-h-[460px] md:min-h-[520px]">
           {/* Shutter White Flash Effect */}
-          {isShutterEffect && (
+          {isShutterFlashing && (
             <div className="absolute inset-0 z-40 bg-white pointer-events-none animate-fade-out" />
           )}
 
           {errorMessage ? (
-            <div className="p-5 sm:p-6 text-center text-neutral-300 max-w-sm space-y-4">
+            /* Error & Fallback State */
+            <div className="p-6 text-center text-neutral-300 max-w-sm space-y-4 z-20">
               <div className="w-12 h-12 rounded-2xl bg-neutral-900 text-amber-400 flex items-center justify-center mx-auto border border-neutral-800 shadow-inner">
                 <AlertTriangle className="w-6 h-6" />
               </div>
-              <div>
-                <h4 className="text-sm font-bold text-white mb-1">Acceso a Cámara Restringido</h4>
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-white">Cámara en Vivo no Disponible</h4>
                 <p className="text-xs text-neutral-400 leading-relaxed">{errorMessage}</p>
               </div>
 
-              <div className="space-y-2 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2">
                 <button
                   type="button"
                   onClick={() => nativeCameraInputRef.current?.click()}
-                  className="w-full px-4 py-2.5 bg-white text-black font-bold rounded-xl text-xs flex items-center justify-center gap-2 hover:bg-neutral-200 transition-colors shadow-xs cursor-pointer"
+                  className="py-3 px-4 bg-white text-black font-bold rounded-xl text-xs flex items-center justify-center gap-2 hover:bg-neutral-200 transition-colors shadow-md cursor-pointer"
                 >
                   <Smartphone className="w-4 h-4" />
-                  <span>Tomar con la Cámara de tu Celular</span>
+                  <span>Cámara Nativa</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => galleryInputRef.current?.click()}
-                  className="w-full px-4 py-2.5 bg-neutral-900 text-neutral-200 font-semibold rounded-xl text-xs flex items-center justify-center gap-2 hover:bg-neutral-800 border border-neutral-800 transition-colors cursor-pointer"
+                  className="py-3 px-4 bg-neutral-900 text-neutral-200 font-semibold rounded-xl text-xs flex items-center justify-center gap-2 hover:bg-neutral-800 border border-neutral-800 transition-colors cursor-pointer"
                 >
-                  <UploadCloud className="w-4 h-4" />
-                  <span>Elegir Foto de Galería</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="w-full px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-white font-medium rounded-xl text-xs transition-colors cursor-pointer"
-                >
-                  Cancelar
+                  <ImageIcon className="w-4 h-4" />
+                  <span>Elegir Archivo</span>
                 </button>
               </div>
             </div>
           ) : capturedPhoto ? (
-            <div className="relative w-full h-full flex items-center justify-center">
+            /* Captured Photo Preview */
+            <div className="relative w-full h-full flex items-center justify-center bg-black animate-fade-in">
               <img
                 src={capturedPhoto}
-                alt="Foto capturada"
-                className="w-full h-full max-h-[480px] object-contain"
+                alt="Foto Capturada"
+                className="w-full h-full object-contain max-h-[75vh]"
               />
-              <div className="absolute top-3 left-3 bg-black/70 backdrop-blur-sm border border-white/20 text-white text-[10.5px] px-2.5 py-1 rounded-full font-bold">
-                ✓ Foto Lista para Evaluar
+              <div className="absolute top-4 left-4 sm:top-6 sm:left-6 bg-black/75 backdrop-blur-md border border-white/20 text-white text-xs font-semibold px-3.5 py-1.5 rounded-full flex items-center gap-2 shadow-lg">
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Fotografía capturada en alta resolución</span>
               </div>
             </div>
           ) : (
-            <div className="relative w-full h-full flex items-center justify-center min-h-[340px]">
+            /* Live Stream Video */
+            <div className="relative w-full h-full flex items-center justify-center">
               <video
                 ref={videoRef}
                 autoPlay
                 playsInline
                 muted
-                className={`w-full h-full max-h-[480px] object-cover sm:object-contain transition-transform ${
+                className={`w-full h-full object-cover transition-transform ${
                   facingMode === 'user' && isMirrored ? 'scale-x-[-1]' : ''
                 }`}
               />
 
               {isCameraLoading && (
-                <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white text-xs gap-2 z-20">
-                  <RefreshCw className="w-5 h-5 animate-spin text-amber-400" />
-                  <span>Iniciando cámara en vivo...</span>
+                <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center text-white text-xs gap-3 z-20">
+                  <RefreshCw className="w-7 h-7 animate-spin text-amber-400" />
+                  <span className="font-medium text-neutral-300">Iniciando cámara en alta definición...</span>
                 </div>
               )}
 
-              {/* Big Animated Countdown Overlay */}
+              {/* Big Cinematic Countdown Overlay */}
               {countingDown !== null && (
-                <div className="absolute inset-0 z-30 bg-black/40 backdrop-blur-xs flex flex-col items-center justify-center animate-fade-in pointer-events-auto">
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-white/90 text-black flex items-center justify-center font-black text-5xl sm:text-6xl shadow-2xl animate-pulse ring-8 ring-amber-400/80">
+                <div className="absolute inset-0 z-30 bg-black/50 backdrop-blur-xs flex flex-col items-center justify-center animate-fade-in">
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-white text-black flex items-center justify-center font-black text-5xl sm:text-6xl shadow-2xl animate-pulse ring-8 ring-amber-400/80">
                     {countingDown}
                   </div>
+                  <p className="text-white text-sm font-semibold mt-4">Mantén la postura y mira a la cámara</p>
                   <button
                     type="button"
-                    onClick={handleCancelTimer}
-                    className="mt-6 px-4 py-2 rounded-xl bg-black/80 text-white text-xs font-bold border border-white/30 hover:bg-neutral-900 cursor-pointer shadow-lg"
+                    onClick={handleCancelCountdown}
+                    className="mt-4 px-5 py-2 rounded-full bg-black/80 backdrop-blur-md text-white text-xs font-bold border border-white/30 hover:bg-neutral-900 cursor-pointer shadow-lg"
                   >
                     Cancelar Temporizador
                   </button>
                 </div>
               )}
 
-              {/* Rule of Thirds Grid Guide */}
-              {guideMode === 'grid' && !isCameraLoading && countingDown === null && (
-                <div className="absolute inset-0 pointer-events-none grid grid-cols-3 grid-rows-3 z-10">
-                  <div className="border-r border-b border-white/30" />
-                  <div className="border-r border-b border-white/30" />
-                  <div className="border-b border-white/30" />
-                  <div className="border-r border-b border-white/30" />
-                  <div className="border-r border-b border-white/30" />
-                  <div className="border-b border-white/30" />
-                  <div className="border-r border-white/30" />
-                  <div className="border-r border-white/30" />
+              {/* Rule of Thirds Composition Grid */}
+              {showGrid && !isCameraLoading && countingDown === null && (
+                <div className="absolute inset-0 pointer-events-none grid grid-cols-3 grid-rows-3 z-10 opacity-35">
+                  <div className="border-r border-b border-white" />
+                  <div className="border-r border-b border-white" />
+                  <div className="border-b border-white" />
+                  <div className="border-r border-b border-white" />
+                  <div className="border-r border-b border-white" />
+                  <div className="border-b border-white" />
+                  <div className="border-r border-white" />
+                  <div className="border-r border-white" />
                   <div />
                 </div>
               )}
 
-              {/* Dynamic Category Silhouette Guides */}
-              {guideMode === 'silhouette' && !isCameraLoading && countingDown === null && (
-                <div className="absolute inset-0 pointer-events-none flex items-center justify-center p-4 z-10 animate-fade-in">
-                  {mode === 'facial' && (
-                    <div className="relative w-[210px] h-[280px] sm:w-[240px] sm:h-[310px] rounded-[50%] border-2 border-dashed border-white/70 shadow-[0_0_20px_rgba(255,255,255,0.2)] flex flex-col items-center justify-center">
-                      <div className="w-3/4 border-b border-white/50 mb-8 flex justify-between px-2">
-                        <span className="text-[8px] font-mono text-white/90 -mt-3.5 bg-black/50 px-1 rounded">OJOS</span>
-                        <span className="text-[8px] font-mono text-white/90 -mt-3.5 bg-black/50 px-1 rounded">OJOS</span>
-                      </div>
-                      <div className="w-1/3 border-b border-white/40" />
-                    </div>
-                  )}
-
-                  {mode === 'mirada' && (
-                    <div className="w-[88%] max-w-[320px] h-[130px] rounded-2xl border-2 border-dashed border-blue-400/80 shadow-[0_0_20px_rgba(96,165,250,0.3)] flex flex-col items-center justify-center relative">
-                      <div className="w-full border-b border-blue-400/50" />
-                      <span className="absolute bottom-2 text-[9px] font-mono text-blue-200 font-bold uppercase tracking-wider bg-black/70 px-2.5 py-0.5 rounded-full border border-blue-400/40">
-                        ALINEAR OJOS Y CEJAS
+              {/* Minimalist Aesthetic Center Alignment Reticle */}
+              {showGuide && !isCameraLoading && countingDown === null && (
+                <div className="absolute inset-0 pointer-events-none flex items-center justify-center p-6 z-10">
+                  {mode === 'facial' ? (
+                    <div className="w-[220px] sm:w-[260px] h-[300px] sm:h-[340px] rounded-[50%] border border-white/35 shadow-[0_0_20px_rgba(255,255,255,0.08)] flex flex-col items-center justify-center relative">
+                      <div className="w-2/3 border-b border-white/20 mb-10" />
+                      <span className="text-[10px] text-white/50 uppercase tracking-widest absolute bottom-4">
+                        Alinear Rostro
                       </span>
                     </div>
-                  )}
-
-                  {mode === 'fisico' && (
-                    <div className="w-[82%] max-w-[280px] h-[85%] border-2 border-dashed border-emerald-400/70 rounded-3xl flex flex-col justify-between p-3 relative shadow-[0_0_20px_rgba(52,211,153,0.2)]">
-                      <div className="w-full border-b border-emerald-400/50 pt-10 flex justify-between text-[8px] font-mono text-emerald-200">
-                        <span className="bg-black/60 px-1 rounded">HOMBRO</span>
-                        <span className="bg-black/60 px-1 rounded">HOMBRO</span>
-                      </div>
-                      <span className="text-[8px] font-mono text-emerald-200 text-center uppercase tracking-wider bg-black/70 py-1 rounded border border-emerald-400/30">
-                        POSTURA & TORSO CENTRADO
+                  ) : mode === 'mirada' ? (
+                    <div className="w-[85%] max-w-[320px] h-[130px] rounded-2xl border border-blue-400/40 shadow-[0_0_15px_rgba(96,165,250,0.2)] flex items-center justify-center">
+                      <span className="text-[10px] text-blue-300/60 uppercase tracking-wider">
+                        Encuadre de Ojos
                       </span>
                     </div>
-                  )}
-
-                  {mode === 'peinado' && (
-                    <div className="relative w-[230px] h-[300px] flex flex-col items-center justify-center">
-                      <div className="w-full h-[60%] border-t-2 border-x-2 border-dashed border-purple-400/80 rounded-t-[70px] shadow-[0_0_20px_rgba(192,132,252,0.25)]" />
-                      <div className="w-[70%] h-[40%] border-b-2 border-x-2 border-dashed border-purple-400/50 rounded-b-[50px] -mt-1 flex items-center justify-center">
-                        <span className="text-[8px] font-mono text-purple-200 font-bold bg-black/60 px-1 rounded">ROSTRO</span>
-                      </div>
-                      <span className="absolute top-2 text-[8px] font-mono text-purple-200 font-bold bg-black/70 px-2.5 py-0.5 rounded-full border border-purple-400/40">
-                        VOLUMEN SUPERIOR & LATERALES
+                  ) : mode === 'fisico' ? (
+                    <div className="w-[80%] h-[84%] max-w-sm rounded-3xl border border-emerald-400/30 flex items-center justify-center">
+                      <span className="text-[10px] text-emerald-300/60 uppercase tracking-wider">
+                        Encuadre Postura / Cuello
                       </span>
                     </div>
-                  )}
-
-                  {mode === 'aura' && (
-                    <div className="w-[85%] h-[85%] border border-rose-400/40 rounded-3xl relative flex items-center justify-center">
-                      <div className="absolute top-2 left-2 w-4 h-4 border-t-2 border-l-2 border-rose-400" />
-                      <div className="absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 border-rose-400" />
-                      <div className="absolute bottom-2 left-2 w-4 h-4 border-b-2 border-l-2 border-rose-400" />
-                      <div className="absolute bottom-2 right-2 w-4 h-4 border-b-2 border-r-2 border-rose-400" />
-                    </div>
+                  ) : (
+                    <div className="w-16 h-16 border-t border-l border-white/30" />
                   )}
                 </div>
               )}
@@ -646,95 +575,92 @@ export function CameraCaptureModal({
           <canvas ref={canvasRef} className="hidden" />
         </div>
 
-        {/* Dynamic Contextual Tip bar */}
-        {!errorMessage && !capturedPhoto && (
-          <div className="px-3.5 py-2 bg-neutral-900 border-t border-neutral-800 flex items-center justify-between gap-2 text-xs text-neutral-300 flex-shrink-0">
-            <div className="flex items-center gap-2 min-w-0">
-              {guideInfo.icon}
-              <p className="text-[11px] text-neutral-300 leading-tight truncate">
-                <strong className="text-white">{guideInfo.title}:</strong> {guideInfo.tip}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Privacy Note */}
-        <div className="px-3 py-1 bg-black border-t border-neutral-900 flex items-center justify-center gap-1.5 text-[10px] text-neutral-400 flex-shrink-0">
-          <Lock className="w-3 h-3 text-neutral-400" />
-          <span>Privacidad total: foto procesada en memoria sin guardarse en servidores.</span>
-        </div>
-
-        {/* Bottom Shutter Controls Bar */}
-        <div className="p-3 sm:p-4 bg-neutral-950 border-t border-neutral-800 flex items-center justify-between gap-2 sm:gap-3 flex-shrink-0">
+        {/* 
+          3. BOTTOM SHUTTER & ACTION DECK:
+          - Mobile: Clean iOS/Leica circular button layout.
+          - Desktop (sm+): Spacious studio console with file uploader, big central shutter with Spacebar hint, and flip/confirm buttons.
+        */}
+        <div className="p-4 sm:px-6 sm:py-5 bg-gradient-to-t from-black via-black/90 to-transparent sm:bg-neutral-900/90 sm:border-t sm:border-neutral-800 flex items-center justify-between gap-4 z-30 flex-shrink-0">
           {!errorMessage && !capturedPhoto ? (
             <>
-              {/* Gallery Shortcut Button */}
-              <button
-                type="button"
-                onClick={() => galleryInputRef.current?.click()}
-                className="p-2 sm:px-3 sm:py-2.5 rounded-xl bg-neutral-900 text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
-                title="Elegir desde la galería"
-              >
-                <UploadCloud className="w-4 h-4 text-amber-400" />
-                <span className="hidden sm:inline">Galería</span>
-              </button>
+              {/* Left Action: Gallery / File Upload */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => galleryInputRef.current?.click()}
+                  className="w-12 h-12 sm:w-auto sm:px-4 sm:py-2.5 rounded-full sm:rounded-xl bg-neutral-900/90 sm:bg-neutral-800 border border-neutral-800 sm:border-neutral-700 text-neutral-300 hover:text-white flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-sm"
+                  title="Elegir foto existente"
+                >
+                  <ImageIcon className="w-5 h-5 sm:w-4 sm:h-4 text-neutral-300" />
+                  <span className="hidden sm:inline text-xs font-semibold">Subir Archivo</span>
+                </button>
+              </div>
 
-              {/* Main Shutter Button with Countdown indicator */}
-              <button
-                type="button"
-                onClick={handleStartCaptureFlow}
-                disabled={countingDown !== null}
-                className="flex-1 max-w-[200px] py-3 rounded-2xl bg-white text-black hover:bg-neutral-200 font-black text-xs sm:text-sm uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
-              >
-                {timerSeconds > 0 ? (
-                  <>
-                    <Timer className="w-4 h-4 text-amber-600" />
-                    <span>Capturar ({timerSeconds}s)</span>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-3.5 h-3.5 rounded-full bg-red-600 animate-pulse" />
-                    <span>Disparar</span>
-                  </>
-                )}
-              </button>
+              {/* Center Action: Double Ring Shutter Button */}
+              <div className="flex flex-col items-center">
+                <button
+                  type="button"
+                  onClick={handleStartCountdown}
+                  disabled={countingDown !== null || isCameraLoading}
+                  className="w-18 h-18 sm:w-20 sm:h-20 rounded-full border-4 border-white/90 sm:border-white p-1 flex items-center justify-center transition-all hover:scale-105 active:scale-90 cursor-pointer disabled:opacity-50 shadow-2xl group"
+                  title="Tomar fotografía (o pulsa barra espaciadora)"
+                >
+                  <div className={`w-full h-full rounded-full transition-all flex items-center justify-center ${
+                    timerSeconds > 0 ? 'bg-amber-400 group-hover:bg-amber-300' : 'bg-white group-hover:bg-neutral-200'
+                  }`}>
+                    {timerSeconds > 0 ? (
+                      <Timer className="w-6 h-6 sm:w-7 sm:h-7 text-black" />
+                    ) : (
+                      <div className="w-4 h-4 rounded-full bg-black/10" />
+                    )}
+                  </div>
+                </button>
+                <span className="hidden sm:block text-[11px] text-neutral-400 font-medium mt-1.5">
+                  {timerSeconds > 0 ? `Disparo en ${timerSeconds}s` : 'Clic o [Espacio]'}
+                </span>
+              </div>
 
-              {/* Close Button */}
-              <button
-                type="button"
-                onClick={handleClose}
-                className="p-2 sm:px-3 sm:py-2.5 rounded-xl bg-neutral-900 text-neutral-400 hover:text-white text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
-                title="Cerrar modal"
-              >
-                <X className="w-4 h-4" />
-                <span className="hidden sm:inline">Salir</span>
-              </button>
+              {/* Right Action: Camera Switcher */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleToggleCamera}
+                  className="w-12 h-12 sm:w-auto sm:px-4 sm:py-2.5 rounded-full sm:rounded-xl bg-neutral-900/90 sm:bg-neutral-800 border border-neutral-800 sm:border-neutral-700 text-neutral-300 hover:text-white flex items-center justify-center gap-2 transition-all active:scale-95 cursor-pointer shadow-sm"
+                  title="Cambiar entre cámara frontal y trasera"
+                >
+                  <RefreshCw className="w-5 h-5 sm:w-4 sm:h-4 text-neutral-300" />
+                  <span className="hidden sm:inline text-xs font-semibold">
+                    {facingMode === 'user' ? 'Frontal' : 'Trasera'}
+                  </span>
+                </button>
+              </div>
             </>
           ) : capturedPhoto ? (
-            <>
+            /* Review Actions */
+            <div className="w-full flex items-center justify-between gap-3 max-w-md mx-auto">
               <button
                 type="button"
                 onClick={handleRetake}
-                className="flex-1 px-4 py-2.5 rounded-xl bg-neutral-900 text-neutral-200 hover:bg-neutral-800 hover:text-white text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                className="flex-1 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-neutral-900 sm:bg-neutral-800 border border-neutral-800 sm:border-neutral-700 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 hover:bg-neutral-800 dark:hover:bg-neutral-700 active:scale-95 transition-all cursor-pointer shadow-sm"
               >
-                <RefreshCw className="w-4 h-4 text-amber-400" />
-                <span>Tomar de Nuevo</span>
+                <RefreshCw className="w-4 h-4" />
+                <span>Repetir Foto</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleConfirmPhoto}
-                className="flex-1 px-5 py-2.5 rounded-xl bg-white text-black hover:bg-neutral-200 text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg cursor-pointer transition-all active:scale-95"
+                className="flex-1 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl bg-white text-black font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 hover:bg-neutral-200 active:scale-95 transition-all shadow-xl cursor-pointer"
               >
-                <Check className="w-4 h-4 text-black" />
-                <span>Usar Esta Foto</span>
+                <Check className="w-4 h-4" />
+                <span>Usar Foto</span>
               </button>
-            </>
+            </div>
           ) : (
             <button
               type="button"
               onClick={handleClose}
-              className="ml-auto px-4 py-2 rounded-xl bg-neutral-900 text-neutral-300 hover:bg-neutral-800 hover:text-white text-xs font-semibold cursor-pointer"
+              className="w-full py-3 rounded-xl bg-neutral-900 text-white text-xs font-bold cursor-pointer"
             >
               Cerrar
             </button>

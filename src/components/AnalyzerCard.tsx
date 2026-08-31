@@ -160,42 +160,54 @@ export function AnalyzerCard({
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`border-2 border-dashed rounded-2xl p-6 sm:p-8 text-center transition-all ${
+            className={`rounded-2xl p-5 sm:p-8 md:p-10 text-center transition-all border ${
               isDragging
-                ? 'border-black dark:border-white bg-neutral-100 dark:bg-neutral-900'
-                : 'border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-black hover:border-neutral-400 dark:hover:border-neutral-700'
+                ? 'border-black dark:border-white bg-neutral-100 dark:bg-neutral-900 ring-2 ring-black/10 dark:ring-white/20'
+                : 'border-neutral-200 dark:border-neutral-800 bg-neutral-50/70 dark:bg-neutral-900/40 hover:border-neutral-300 dark:hover:border-neutral-700'
             }`}
           >
-            <div className="max-w-xs mx-auto space-y-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-neutral-100 dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 flex items-center justify-center mx-auto shadow-inner">
-                <UploadCloud className="w-6 h-6 text-neutral-800 dark:text-neutral-200" />
+            <div className="max-w-md mx-auto space-y-4 sm:space-y-5">
+              <div className="flex items-center justify-center gap-3">
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-800 dark:text-neutral-200 flex items-center justify-center shadow-xs">
+                  <Camera className="w-6 h-6 sm:w-7 sm:h-7 text-amber-500 dark:text-amber-400" />
+                </div>
               </div>
 
               <div>
-                <p className="text-sm font-bold text-neutral-900 dark:text-white">
-                  Arrastra tu fotografía aquí
+                <p className="text-sm sm:text-base font-bold text-neutral-900 dark:text-white">
+                  Captura en vivo o carga tu fotografía
                 </p>
-                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                  Formatos soportados: JPG, PNG, WEBP
+                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 max-w-xs mx-auto">
+                  <span className="hidden sm:inline">Arrastra tu archivo aquí o </span>
+                  Utiliza la cámara en alta resolución o selecciona de tus fotos
                 </p>
               </div>
 
-              <div className="flex items-center justify-center gap-2.5 pt-1">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-4 py-2.5 text-xs font-bold rounded-xl bg-black text-white dark:bg-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors shadow-xs cursor-pointer"
-                >
-                  Examinar Archivo
-                </button>
+              {/* Dual Action Grid (Mobile-First Touch Target & Desktop Studio Buttons) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 max-w-sm mx-auto">
                 <button
                   type="button"
                   onClick={onOpenLiveCamera}
-                  className="px-3.5 py-2.5 text-xs font-semibold rounded-xl bg-neutral-100 dark:bg-neutral-900 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 transition-colors flex items-center gap-1.5 cursor-pointer"
+                  className="py-3 px-4 text-xs sm:text-sm font-bold rounded-xl bg-black text-white dark:bg-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer active:scale-98"
                 >
-                  <Camera className="w-3.5 h-3.5 text-neutral-800 dark:text-neutral-200" />
-                  <span>Cámara</span>
+                  <Camera className="w-4 h-4 text-amber-300 dark:text-amber-600" />
+                  <span>Tomar con Cámara</span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="py-3 px-4 text-xs sm:text-sm font-semibold rounded-xl bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-700 border border-neutral-200 dark:border-neutral-700 transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer active:scale-98"
+                >
+                  <UploadCloud className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
+                  <span>Elegir Archivo</span>
+                </button>
+              </div>
+
+              <div className="hidden sm:flex items-center justify-center gap-2 text-[11px] text-neutral-400 pt-1">
+                <span>Formatos: JPG, PNG, WEBP</span>
+                <span>•</span>
+                <span>Resolución recomendada: 1080p o superior</span>
               </div>
             </div>
 
